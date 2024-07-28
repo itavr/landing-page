@@ -8,11 +8,13 @@ let color_bg, color_planet;
 let v_planet = [];
 let zoomLevel = 1;
 let targetZoom = 1;
-let zoomSpeed = 0.05; // שנה ערך זה כדי לשנות את מהירות הזום
+let zoomSpeed = 0.05;
 let zoomComplete = false;
-let maxZoom = 20; // שנה ערך זה כדי לשנות את עומק הזום המקסימלי
+let maxZoom = 20;
 let centralPlanetSize;
 let transitionProgress = 0;
+let scrollPosition = 0;
+let maxScroll;
 
 function setup() {
   frameRate(50);
@@ -24,47 +26,73 @@ function setup() {
   perspective(PI / 3.5, width / height, 1, 5000);
   palette = random(colorScheme).colors.concat();
   color_bg = "#202020";
-  color_planet = random(palette);
+  color_planet = "#020317"; // Set the final color to #020317
   background(color_bg);
   num = int(random(20, 10));
   radius = mySize * 2.25;
   
-  // הגדרת גודל הכוכב המרכזי - שנה את המספר כאן כדי לשנות את גודל הכוכב
   centralPlanetSize = mySize / 35;
   
   for (let a = 0; a < TAU; a += TAU / num) {
     sizes.push(random(0.1, 0.5));
   }
   t = 0;
+  
+  maxScroll = windowHeight * 2; // Adjust this value to control the total scroll length
 }
 
 function draw() {
   randomSeed(seed);
-  // מעבר הדרגתי של צבע הרקע
-  background(lerpColor(color(color_bg), color(color_planet), transitionProgress));
-
-  // הפעלת אפקט הזום
-  scale(zoomLevel);
+  
+  // Calculate zoom based on scroll position
+  targetZoom = map(scrollPosition, 0, maxScroll, 1, maxZoom);
   zoomLevel = lerp(zoomLevel, targetZoom, zoomSpeed);
 
-  // עדכון התקדמות המעבר
-  if (zoomLevel > maxZoom / 2) {
-    transitionProgress = map(zoomLevel, maxZoom / 2, maxZoom, 0, 1);
-  }
+  // Calculate transition progress
+  transitionProgress = map(zoomLevel, 1, maxZoom, 0, 1);
+  transitionProgress = constrain(transitionProgress, 0, 1);
 
-  // בדיקה אם הזום הושלם
-  if (abs(zoomLevel - targetZoom) < 0.01 && targetZoom >= maxZoom) {
-    zoomComplete = true;
-  }
+  // Transition background color
+  let bgColor = lerpColor(color(color_bg), color(color_planet), transitionProgress);
+  background(bgColor);
 
-  // ציור הכוכב המרכזי
+  push();
+  scale(zoomLevel);
+
+  // Draw central star
   push();
   noStroke();
   fill(color_planet);
   sphere(centralPlanetSize);
   pop();
 
-  // קוד הציור הקיים שלך (עם כמה שינויים)
+  // Draw space elements
+  if (transitionProgress < 0.9) {
+    drawSpaceElements();
+  }
+
+  pop();
+
+  // Display instructions
+  if (transitionProgress < 1) {
+    push();
+    fill(255, 255 * (1 - transitionProgress));
+    textAlign(CENTER, CENTER);
+    textSize(20 / zoomLevel);
+    text("Scroll to enter the star", 0, height / 3 / zoomLevel);
+    pop();
+  }
+
+  // Check if transition is complete
+  if (transitionProgress >= 1) {
+    zoomComplete = true;
+    // Here you can trigger the transition to the rest of your site
+    // For example, you could use:
+    // window.location.href = 'your-main-site-url';
+  }
+}
+
+function drawSpaceElements() {
   for (let i = 0; i < num; i++) {
     let a = (TAU / num) * i;
     let x = radius * sin(a + t) / random(5, 3) / 1.0;
@@ -90,7 +118,6 @@ function draw() {
         let x_plus = 1.25 * random(-d, d) / 1;
         let y_plus = 1.25 * random(-d, d) / 1;
         let z_plus = 1.25 * random(-d, d) / 1;
-        // הקטנת האובייקטים ככל שמתקרבים לכוכב המרכזי
         torus(z_plus, random(0.1,1.5) * (1 - transitionProgress), 100, 100);
         pop();
       }
@@ -100,7 +127,6 @@ function draw() {
         let y_plus = 0.5 * random(-d, d) / 1;
         let z_plus = 0.5 * random(-d, d) / 1;
         stroke(random(palette));
-        // הקטנת עובי הקו ככל שמתקרבים לכוכב המרכזי
         strokeWeight(random(0.1, 0.5) * (1 - transitionProgress));
         noFill();
         push();
@@ -108,7 +134,6 @@ function draw() {
         rotateX(random(TAU) + t);
         rotateY(random(-TAU) + t);
         rotateZ(random(PI) + t);
-        // הקטנת האובייקטים ככל שמתקרבים לכוכב המרכזי
         sphere(random(2, 15) * (1 - transitionProgress));
         pop();
       }
@@ -117,38 +142,22 @@ function draw() {
   pop();
 
   t += random(2, 1) * random(0.001, 0.005) / 1;
-
-  // הצגת הוראות אם הזום לא הושלם
-  if (!zoomComplete) {
-    push();
-    fill(255);
-    textAlign(CENTER, CENTER);
-    textSize(20 / zoomLevel);
-    text("גלול כדי להתקרב", 0, height / 3 / zoomLevel);
-    pop();
-  }
 }
 
 function mouseWheel(event) {
   if (!zoomComplete) {
-    // הגדלה או הקטנה של targetZoom בהתאם לכיוון הגלילה
-    targetZoom += event.delta * -0.01;
-    
-    // הגבלת targetZoom בין 1 ל-maxZoom
-    targetZoom = constrain(targetZoom, 1, maxZoom);
-    
-    // מניעת התנהגות גלילה רגילה
+    scrollPosition += event.delta;
+    scrollPosition = constrain(scrollPosition, 0, maxScroll);
     return false;
   }
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  // עדכון גודל הכוכב המרכזי בעת שינוי גודל החלון
-  centralPlanetSize = min(windowWidth, windowHeight) / 10;
+  centralPlanetSize = min(windowWidth, windowHeight) / 35;
+  maxScroll = windowHeight * 2; // Recalculate maxScroll on window resize
 }
 
-// סכמות צבעים (אתה צריך להגדיר אלה או להשתמש בספריית צבעים)
 const colorScheme = [
   {colors: ['#000427', '#EEC280', '#0C3A44', '#191224', '#221605']},
   {colors: ['#343D46', '#F1EDDB', '#ECF0F1', '#282E33', '#03111A']},
@@ -159,4 +168,3 @@ const colorScheme = [
   {"colors": ["#1c1b23", "#9c8e7f", "#8a7a6f", "#564d49", "#403734"]},
   {"colors": ["#202124", "#b0a297", "#877d74", "#5c524d", "#3d3633"]}
 ]
-  // הוסף עוד סכמות צבעים לפי הצורך
